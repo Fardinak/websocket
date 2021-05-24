@@ -125,11 +125,11 @@ func (s *Socket) Close() error {
 }
 
 // Send is a helper method to send a message to current socket
-func (s *Socket) Send(message string, payload []byte) error {
-	return s.subp.SendToSocket(s, message, payload)
+func (s *Socket) Send(topic string, payload []byte) error {
+	return s.subp.SendToSocket(s, topic, payload)
 }
 
 // SendToClient is a helper method to send a message to all sockets of the same client
-func (s *Socket) SendToClient(message string, payload []byte) error {
-	return s.subp.SendToClient(s.clientID, message, payload)
+func (s *Socket) SendToClient(topic string, payload []byte) error {
+	return s.subp.SendToClient(s.clientID, topic, payload)
 }

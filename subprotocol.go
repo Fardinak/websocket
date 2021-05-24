@@ -7,7 +7,6 @@ import (
 )
 
 var (
-	ErrUnregisteredSender = errors.New("websocket: unregistered sender")
 	ErrMessageTooLong = errors.New("websocket: message too long")
 )
 
@@ -37,11 +36,11 @@ func newSubProtocol(name string) *Subprotocol {
 // Handle defines the handler for a message. Handlers are not called
 // concurrently and will block further messages from being handled on the same
 // Socket to ensure message ordering.
-func (s *Subprotocol) Handle(message string, handler MessageHandler) {
-	if _, ok := s.handlers[message]; ok {
-		panic(fmt.Sprintf("websocket: duplicate handler registered (%s)", message))
+func (s *Subprotocol) Handle(topic string, handler MessageHandler) {
+	if _, ok := s.handlers[topic]; ok {
+		panic(fmt.Sprintf("websocket: duplicate handler registered (%s)", topic))
 	}
-	s.handlers[message] = handler
+	s.handlers[topic] = handler
 }
 
 func (s *Subprotocol) newConnection(r *http.Request, socket *Socket) {
@@ -55,43 +54,43 @@ func (s *Subprotocol) newConnection(r *http.Request, socket *Socket) {
 	}
 }
 
-func (s *Subprotocol) encodeMessage(message string, payload []byte) (msg []byte, err error) {
+func (s *Subprotocol) encodeMessage(topic string, payload []byte) (msg []byte, err error) {
 	var msgLen uint8
-	if l := len(message); l < 256 {
+	if l := len(topic); l < 256 {
 		msgLen = uint8(l)
 	} else {
 		return nil, ErrMessageTooLong
 	}
 
-	// Prepend message length and message name to payload
-	msg = make([]byte, len(payload)+len(message)+1)
-	copy(msg[msgLen+1:], payload)
-	copy(msg[1:], message)
+	// Prepend topic length and topic name to payload
+	msg = make([]byte, len(payload)+len(topic)+1)
 	msg[0] = msgLen
+	copy(msg[1:], topic)
+	copy(msg[msgLen+1:], payload)
 
 	return payload, nil
 }
 
-func (s *Subprotocol) decodeMessage(msg []byte) (message string, payload []byte) {
+func (s *Subprotocol) decodeMessage(msg []byte) (topic string, payload []byte) {
 	msgLen := msg[0]
 	return string(msg[1:msgLen+1]), msg[msgLen+1:]
 }
 
 func (s *Subprotocol) handleMessage(socket *Socket, msg []byte) {
-	message, payload := s.decodeMessage(msg)
+	topic, payload := s.decodeMessage(msg)
 
-	if handler, ok := s.handlers[message]; ok {
+	if handler, ok := s.handlers[topic]; ok {
 		handler(socket, payload)
 		return
 	}
 
 	if s.FallbackHandler != nil {
-		s.FallbackHandler(socket, message, payload)
+		s.FallbackHandler(socket, topic, payload)
 	}
 }
 
-func (s *Subprotocol) SendToSocket(socket *Socket, message string, payload []byte) error {
-	msg, err := s.encodeMessage(message, payload)
+func (s *Subprotocol) SendToSocket(socket *Socket, topic string, payload []byte) error {
+	msg, err := s.encodeMessage(topic, payload)
 	if err != nil {
 		return err
 	}
@@ -100,8 +99,8 @@ func (s *Subprotocol) SendToSocket(socket *Socket, message string, payload []byt
 	return nil
 }
 
-func (s *Subprotocol) SendToClient(id string, message string, payload []byte) error {
-	msg, err := s.encodeMessage(message, payload)
+func (s *Subprotocol) SendToClient(id string, topic string, payload []byte) error {
+	msg, err := s.encodeMessage(topic, payload)
 	if err != nil {
 		return err
 	}
@@ -115,8 +114,8 @@ func (s *Subprotocol) SendToClient(id string, message string, payload []byte) er
 	return nil
 }
 
-func (s *Subprotocol) SendToRoom(name string, message string, payload []byte) error {
-	msg, err := s.encodeMessage(message, payload)
+func (s *Subprotocol) SendToRoom(name string, topic string, payload []byte) error {
+	msg, err := s.encodeMessage(topic, payload)
 	if err != nil {
 		return err
 	}
@@ -132,8 +131,8 @@ func (s *Subprotocol) SendToRoom(name string, message string, payload []byte) er
 	return nil
 }
 
-func (s *Subprotocol) Broadcast(message string, payload []byte) error {
-	msg, err := s.encodeMessage(message, payload)
+func (s *Subprotocol) Broadcast(topic string, payload []byte) error {
+	msg, err := s.encodeMessage(topic, payload)
 	if err != nil {
 		return err
 	}
