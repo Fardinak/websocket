@@ -40,14 +40,8 @@ func NewSocket(conn *websocket.Conn, subp *Subprotocol, log *logrus.Entry) *Sock
 }
 
 // send queues the message to be sent
-func (s *Socket) send(message messageCode, payload []byte) {
-	// Prepend message code to payload
-	payload = append(payload, 0)
-	copy(payload[1:], payload)
-	payload[0] = byte(message)
-
-	// Queue the message to be sent
-	s.sendQueue <- payload
+func (s *Socket) send(msg []byte) {
+	s.sendQueue <- msg
 }
 
 func (s *Socket) readPump() {
@@ -131,11 +125,11 @@ func (s *Socket) Close() error {
 }
 
 // Send is a helper method to send a message to current socket
-func (s *Socket) Send(message Message, payload []byte) error {
-	return s.subp.SendToSocket(s, message, payload)
+func (s *Socket) Send(topic string, payload []byte) error {
+	return s.subp.SendToSocket(s, topic, payload)
 }
 
 // SendToClient is a helper method to send a message to all sockets of the same client
-func (s *Socket) SendToClient(message Message, payload []byte) error {
-	return s.subp.SendToClient(s.clientID, message, payload)
+func (s *Socket) SendToClient(topic string, payload []byte) error {
+	return s.subp.SendToClient(s.clientID, topic, payload)
 }

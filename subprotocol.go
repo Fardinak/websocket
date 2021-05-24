@@ -7,60 +7,40 @@ import (
 )
 
 var (
-	ErrUnregisteredSender = errors.New("websocket: unregistered sender")
+	ErrMessageTooLong = errors.New("websocket: message too long")
 )
 
 type Subprotocol struct {
 	name          string
-	senders       map[Message]messageCode
-	receivers     map[Message]messageCode
-	handlers      map[messageCode]MessageHandler
-	lastSender    messageCode
-	lastReceiver  messageCode
+	handlers      map[string]MessageHandler
 	openSockets   []*Socket
 	clientSockets map[string][]*Socket
 	openRooms     map[string][]string
 
-	FallbackHandler func(socket *Socket, message messageCode, payload []byte)
+	FallbackHandler func(socket *Socket, message string, payload []byte)
 	ClientID        func(r *http.Request) (clientID string)
 }
 
 type MessageHandler func(*Socket, []byte)
 
-type Message string
-
-type messageCode uint8
-
 func newSubProtocol(name string) *Subprotocol {
 	return &Subprotocol{
 		name:         name,
-		senders:      map[Message]messageCode{},
-		receivers:    map[Message]messageCode{},
-		handlers:     map[messageCode]MessageHandler{},
-		lastSender:   0,
-		lastReceiver: 0,
+		handlers:     map[string]MessageHandler{},
 
 		FallbackHandler: nil,
 		ClientID:        nil,
 	}
 }
 
-func (s *Subprotocol) RegisterSender(message Message) {
-	if _, ok := s.senders[message]; ok {
-		panic(fmt.Sprintf("websocket: duplicate sender registered (%s)", message))
+// Handle defines the handler for a message. Handlers are not called
+// concurrently and will block further messages from being handled on the same
+// Socket to ensure message ordering.
+func (s *Subprotocol) Handle(topic string, handler MessageHandler) {
+	if _, ok := s.handlers[topic]; ok {
+		panic(fmt.Sprintf("websocket: duplicate handler registered (%s)", topic))
 	}
-	s.senders[message], s.lastSender = s.lastSender, s.lastSender+1
-}
-
-// RegisterReceiver defines a new message and assigns a handler to it. Handlers
-// are not called concurrently and will block further messages from being
-// handled on the same Socket to ensure message ordering
-func (s *Subprotocol) RegisterReceiver(message Message, handler MessageHandler) {
-	if _, ok := s.receivers[message]; ok {
-		panic(fmt.Sprintf("websocket: duplicate receiver registered (%s)", message))
-	}
-	s.receivers[message], s.lastReceiver = s.lastReceiver, s.lastReceiver+1
-	s.handlers[s.receivers[message]] = handler
+	s.handlers[topic] = handler
 }
 
 func (s *Subprotocol) newConnection(r *http.Request, socket *Socket) {
@@ -74,52 +54,76 @@ func (s *Subprotocol) newConnection(r *http.Request, socket *Socket) {
 	}
 }
 
+func (s *Subprotocol) encodeMessage(topic string, payload []byte) (msg []byte, err error) {
+	var msgLen uint8
+	if l := len(topic); l < 256 {
+		msgLen = uint8(l)
+	} else {
+		return nil, ErrMessageTooLong
+	}
+
+	// Prepend topic length and topic name to payload
+	msg = make([]byte, len(payload)+len(topic)+1)
+	msg[0] = msgLen
+	copy(msg[1:], topic)
+	copy(msg[msgLen+1:], payload)
+
+	return payload, nil
+}
+
+func (s *Subprotocol) decodeMessage(msg []byte) (topic string, payload []byte) {
+	msgLen := msg[0]
+	return string(msg[1:msgLen+1]), msg[msgLen+1:]
+}
+
 func (s *Subprotocol) handleMessage(socket *Socket, msg []byte) {
-	if handler, ok := s.handlers[messageCode(msg[0])]; ok {
-		handler(socket, msg[1:])
+	topic, payload := s.decodeMessage(msg)
+
+	if handler, ok := s.handlers[topic]; ok {
+		handler(socket, payload)
 		return
 	}
 
 	if s.FallbackHandler != nil {
-		s.FallbackHandler(socket, messageCode(msg[0]), msg[1:])
+		s.FallbackHandler(socket, topic, payload)
 	}
 }
 
-func (s *Subprotocol) SendToSocket(socket *Socket, message Message, payload []byte) error {
-	code, ok := s.senders[message]
-	if !ok {
-		return ErrUnregisteredSender
+func (s *Subprotocol) SendToSocket(socket *Socket, topic string, payload []byte) error {
+	msg, err := s.encodeMessage(topic, payload)
+	if err != nil {
+		return err
 	}
 
-	socket.send(code, payload)
+	socket.send(msg)
 	return nil
 }
 
-func (s *Subprotocol) SendToClient(id string, message Message, payload []byte) error {
-	code, ok := s.senders[message]
-	if !ok {
-		return ErrUnregisteredSender
+func (s *Subprotocol) SendToClient(id string, topic string, payload []byte) error {
+	msg, err := s.encodeMessage(topic, payload)
+	if err != nil {
+		return err
 	}
 
 	if clientSockets, ok := s.clientSockets[id]; ok {
 		for _, socket := range clientSockets {
-			socket.send(code, payload)
+			socket.send(msg)
 		}
 	}
 
 	return nil
 }
 
-func (s *Subprotocol) SendToRoom(name string, message Message, payload []byte) error {
-	code, ok := s.senders[message]
-	if !ok {
-		return ErrUnregisteredSender
+func (s *Subprotocol) SendToRoom(name string, topic string, payload []byte) error {
+	msg, err := s.encodeMessage(topic, payload)
+	if err != nil {
+		return err
 	}
 
 	if room, ok := s.openRooms[name]; ok {
 		for _, cid := range room {
 			for _, socket := range s.clientSockets[cid] {
-				socket.send(code, payload)
+				socket.send(msg)
 			}
 		}
 	}
@@ -127,14 +131,14 @@ func (s *Subprotocol) SendToRoom(name string, message Message, payload []byte) e
 	return nil
 }
 
-func (s *Subprotocol) Broadcast(message Message, payload []byte) error {
-	code, ok := s.senders[message]
-	if !ok {
-		return ErrUnregisteredSender
+func (s *Subprotocol) Broadcast(topic string, payload []byte) error {
+	msg, err := s.encodeMessage(topic, payload)
+	if err != nil {
+		return err
 	}
 
 	for _, socket := range s.openSockets {
-		socket.send(code, payload)
+		socket.send(msg)
 	}
 
 	return nil
