@@ -28,7 +28,7 @@ You can further group clients into rooms
 - [ ] Default subprotocol
 - [ ] Logging interface instead of `logrus.Entry`
 - [ ] More comments
-- [ ] JSONSubprotocol: a subprotocol that works with `interface{}` instead on `[]byte` and encodes to/decodes from JSON
+- [ ] JSONSubprotocol: a subprotocol that works with `interface{}` instead of `[]byte` and encodes to/decodes from JSON
 
 ## Credit
 This library is a wrapper around the `gorilla/websocket` implementation.
