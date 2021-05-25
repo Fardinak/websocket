@@ -4,7 +4,39 @@ import "testing"
 
 func BenchmarkPayloadAppend(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		var payload = []byte{99, 99, 99, 99}
+		var payload = []byte{
+			99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+			99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+			99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+			99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+			99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+			99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+			99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+			99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+			99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+			99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+		} // 100 bytes
+		var message = "message_of_some_size"
+		var msgLen = uint8(len(message))
+
+		payload = append([]byte(string(msgLen)+message), payload...)
+	}
+}
+
+func BenchmarkPayloadGrowAndCopy(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		var payload = []byte{
+			99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+			99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+			99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+			99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+			99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+			99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+			99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+			99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+			99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+			99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+		} // 100 bytes
 		var message = "message_of_some_size"
 		var msgLen = uint8(len(message))
 
@@ -15,9 +47,20 @@ func BenchmarkPayloadAppend(b *testing.B) {
 	}
 }
 
-func BenchmarkPayloadNewSlice(b *testing.B) {
+func BenchmarkPayloadNewSliceCopy(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		var payload = []byte{99, 99, 99, 99}
+		var payload = []byte{
+			99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+			99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+			99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+			99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+			99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+			99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+			99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+			99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+			99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+			99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+		} // 100 bytes
 		var message = "message_of_some_size"
 		var msgLen = uint8(len(message))
 
