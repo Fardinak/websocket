@@ -1,4 +1,9 @@
 # WebSocket
+[![GitHub license](https://img.shields.io/github/license/Fardinak/websocket?style=flat-square)](https://github.com/Fardinak/websocket/blob/master/LICENSE)
+![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/Fardinak/websocket?style=flat-square)
+![GitHub release (latest SemVer including pre-releases)](https://img.shields.io/github/v/release/Fardinak/websocket?include_prereleases&sort=semver&style=flat-square)
+[![Go Reference](https://pkg.go.dev/badge/github.com/Fardinak/websocket.svg)](https://pkg.go.dev/github.com/Fardinak/websocket)
+
 A WebSocket Server with Subprotocol support.
 
 ## Features
